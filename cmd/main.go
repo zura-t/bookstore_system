@@ -31,6 +31,7 @@ func setupRoutes(app *fiber.App) {
 	authRoutes.Get("/users/:id", user.GetUser)
 	authRoutes.Patch("/users/my_profile", user.UpdateMyProfile)
 	authRoutes.Delete("/users/my_profile", user.DeleteMyProfile)
+	authRoutes.Patch("/users/author", user.BecomeAuthor)
 }
 
 func main() {

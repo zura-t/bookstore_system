@@ -7,6 +7,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
+	"github.com/zura-t/bookstore_fiber/api"
 	"github.com/zura-t/bookstore_fiber/config"
 	"github.com/zura-t/bookstore_fiber/database"
 	"github.com/zura-t/bookstore_fiber/models"
@@ -83,6 +84,7 @@ type UserResponse struct {
 	Id        uint      `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+	IsAuthor  bool      `json:"is_admin"`
 	Name      string    `json:"name"`
 	Email     string    `json:"email"`
 }
@@ -137,6 +139,7 @@ func ConvertUser(user models.User) UserResponse {
 		Id:        user.ID,
 		Name:      user.Name,
 		Email:     user.Email,
+		IsAuthor:  user.IsAuthor,
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 	}
@@ -227,9 +230,17 @@ func UpdateMyProfile(c *fiber.Ctx) error {
 	}
 
 	db := database.DbConn
-	db.Model(&models.User{}).Where("id = ?", data.UserId).Updates(&user)
+	err := db.Model(&models.User{}).Where("id = ?", data.UserId).Updates(&user).Error
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(api.ErrorResponse(err))
+	}
+
 	var res models.User
-	db.Find(&res, data.UserId)
+	err = db.Find(&res, data.UserId).Error
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(api.ErrorResponse(err))
+	}
+
 	resp := ConvertUser(res)
 	return c.JSON(resp)
 }
@@ -280,11 +291,31 @@ func DeleteMyProfile(c *fiber.Ctx) error {
 	payload := c.Locals("user")
 	data, ok := payload.(*token.Payload)
 	if !ok {
-		return c.Status(fiber.StatusBadRequest).SendString("Can't get payload")
+		err := fmt.Errorf("Can't get payload")
+		return c.Status(fiber.StatusBadRequest).JSON(api.ErrorResponse(err))
 	}
 
 	db := database.DbConn
 	var user models.User
-	db.Delete(&user, data.UserId)
+	err := db.Delete(&user, data.UserId).Error
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(api.ErrorResponse(err))
+	}
+
 	return c.SendString("Profile deleted")
+}
+
+func BecomeAuthor(c *fiber.Ctx) error {
+	payload := c.Locals("user")
+	data, ok := payload.(*token.Payload)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).SendString("Can't get payload")
+	}
+	db := database.DbConn
+	err := db.Model(&models.User{}).Where("id = ?", data.UserId).Update("IsAuthor", true).Error
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(api.ErrorResponse(err))
+	}
+
+	return c.SendString("you became an author")
 }

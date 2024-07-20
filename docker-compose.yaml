@@ -1,0 +1,35 @@
+version: "3"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    restart: always
+    ports:
+      - "8080:8080"
+    deploy:
+      mode: replicated
+      replicas: 1
+    environment:
+      DSN: "host=postgres port=5432 user=postgres password=password dbname=book_store sslmode=disable timezone=UTC connect_timeout=5"
+    depends_on:
+      - postgres
+    networks:
+      - localnet
+      - accounts
+
+  postgres:
+    image: "postgres:14.2"
+    ports:
+      - "5432:5432"
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: book_store
+    volumes:
+      - ./db-data/postgres/:/var/lib/postgresql/data/

@@ -24,7 +24,11 @@ type UserId struct {
 func GetUsers(c *fiber.Ctx) error {
 	var users []models.User
 	db := database.DbConn
-	db.Find(&users)
+	err := db.Find(&users).Error
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(api.ErrorResponse(err))
+	}
+
 	res := make([]*UserResponse, len(users))
 	for index, v := range users {
 		user := ConvertUser(v)
@@ -37,15 +41,21 @@ func GetMyProfile(c *fiber.Ctx) error {
 	payload := c.Locals("user")
 	data, ok := payload.(*token.Payload)
 	if !ok {
-		return c.Status(fiber.StatusBadRequest).SendString("Can't get payload")
+		err := fmt.Errorf("Can't get payload")
+		return c.Status(fiber.StatusBadRequest).JSON(api.ErrorResponse(err))
 	}
 
 	var user models.User
 	db := database.DbConn
 
-	db.Find(&user, data.UserId)
+	err := db.Find(&user, data.UserId).Error
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(api.ErrorResponse(err))
+	}
+
 	if user == (models.User{}) {
-		return c.Status(fiber.StatusNotFound).SendString("User not found")
+		err = fmt.Errorf("User not found")
+		return c.Status(fiber.StatusNotFound).JSON(api.ErrorResponse(err))
 	}
 	res := ConvertUser(user)
 	return c.JSON(res)
@@ -54,20 +64,25 @@ func GetMyProfile(c *fiber.Ctx) error {
 func GetUser(c *fiber.Ctx) error {
 	var req UserId
 	if err := c.ParamsParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+		return c.Status(fiber.StatusBadRequest).JSON(api.ErrorResponse(err))
 	}
 
 	validate := validator.New()
 	if err := validate.Struct(req); err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+		return c.Status(fiber.StatusBadRequest).JSON(api.ErrorResponse(err))
 	}
 
 	var user models.User
 	db := database.DbConn
 
-	db.Find(&user, req.Id)
+	err := db.Find(&user, req.Id).Error
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(api.ErrorResponse(err))
+	}
+
 	if user == (models.User{}) {
-		return c.Status(fiber.StatusNotFound).SendString("User not found")
+		err = fmt.Errorf("User not found")
+		return c.Status(fiber.StatusNotFound).JSON(api.ErrorResponse(err))
 	}
 
 	res := ConvertUser(user)
@@ -93,12 +108,12 @@ func Register(c *fiber.Ctx) error {
 	var req RegisterUserRequest
 	if err := c.BodyParser(&req); err != nil {
 		log.Error(err)
-		return c.Status(503).SendString(err.Error())
+		return c.Status(503).JSON(api.ErrorResponse(err))
 	}
 
 	validate := validator.New()
 	if err := validate.Struct(req); err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+		return c.Status(fiber.StatusBadRequest).JSON(api.ErrorResponse(err))
 	}
 
 	db := database.DbConn
@@ -106,15 +121,16 @@ func Register(c *fiber.Ctx) error {
 	var user models.User
 	err := db.Find(&user, models.User{Email: req.Email}).Error
 	if user != (models.User{}) {
-		return c.Status(fiber.StatusBadRequest).SendString("User with this email already exists")
+		err = fmt.Errorf("User with this email already exists")
+		return c.Status(fiber.StatusBadRequest).JSON(api.ErrorResponse(err))
 	}
 	if err != nil && err != gorm.ErrRecordNotFound {
-		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+		return c.Status(fiber.StatusInternalServerError).JSON(api.ErrorResponse(err))
 	}
 
 	hashedPassword, err := pkg.HashPassword(req.Password)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+		return c.Status(fiber.StatusBadRequest).JSON(api.ErrorResponse(err))
 	}
 
 	new_user := models.User{
@@ -125,8 +141,7 @@ func Register(c *fiber.Ctx) error {
 
 	err = db.Create(&new_user).Error
 	if err != nil {
-		err = fmt.Errorf("failed to create user: %s", err)
-		return c.Status(400).SendString(err.Error())
+		return c.Status(fiber.StatusBadRequest).JSON(api.ErrorResponse(err))
 	}
 
 	res := ConvertUser(new_user)
@@ -162,12 +177,12 @@ func Login(c *fiber.Ctx) error {
 	var req LoginUserRequest
 	if err := c.BodyParser(&req); err != nil {
 		log.Error(err)
-		return c.Status(503).SendString(err.Error())
+		return c.Status(503).JSON(api.ErrorResponse(err))
 	}
 
 	validate := validator.New()
 	if err := validate.Struct(req); err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+		return c.Status(fiber.StatusBadRequest).JSON(api.ErrorResponse(err))
 	}
 
 	db := database.DbConn
@@ -176,25 +191,30 @@ func Login(c *fiber.Ctx) error {
 	err := db.Find(&user, models.User{Email: req.Email}).Error
 	if err != nil {
 		log.Error(err)
-		return c.Status(fiber.StatusBadRequest).SendString("User not found")
+		return c.Status(fiber.StatusInternalServerError).JSON(api.ErrorResponse(err))
+	}
+
+	if user == (models.User{}) {
+		err = fmt.Errorf("User not found")
+		return c.Status(fiber.StatusNotFound).JSON(api.ErrorResponse(err))
 	}
 
 	err = pkg.CheckPassword(req.Password, user.Password)
 	if err != nil {
-		log.Error(err)
-		return c.Status(fiber.StatusBadRequest).SendString("Error incorrect password")
+		err = fmt.Errorf("Error incorrect password, %s", err)
+		return c.Status(fiber.StatusBadRequest).JSON(api.ErrorResponse(err))
 	}
 
 	accessToken, accessPayload, err := token.Jwtmaker.CreateToken(user.ID, user.Email, config.Cfg.AccessTokenDuration)
 	if err != nil {
 		err = fmt.Errorf("failed to create access token: %s", err)
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+		return c.Status(fiber.StatusBadRequest).JSON(api.ErrorResponse(err))
 	}
 
 	refreshToken, refreshPayload, err := token.Jwtmaker.CreateToken(user.ID, user.Email, config.Cfg.RefreshTokenDuration)
 	if err != nil {
 		err = fmt.Errorf("failed to create refresh token: %s", err)
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+		return c.Status(fiber.StatusBadRequest).JSON(api.ErrorResponse(err))
 	}
 
 	res := LoginUserResponse{
@@ -216,17 +236,18 @@ func UpdateMyProfile(c *fiber.Ctx) error {
 	payload := c.Locals("user")
 	data, ok := payload.(*token.Payload)
 	if !ok {
-		return c.Status(fiber.StatusBadRequest).SendString("Can't get payload")
+		err := fmt.Errorf("Can't get payload")
+		return c.Status(fiber.StatusBadRequest).JSON(api.ErrorResponse(err))
 	}
 
 	var user UserUpdate
 	if err := c.BodyParser(&user); err != nil {
-		return c.Status(503).SendString(err.Error())
+		return c.Status(fiber.StatusInternalServerError).JSON(api.ErrorResponse(err))
 	}
 
 	validate := validator.New()
 	if err := validate.Struct(user); err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+		return c.Status(fiber.StatusBadRequest).JSON(api.ErrorResponse(err))
 	}
 
 	db := database.DbConn
@@ -239,6 +260,9 @@ func UpdateMyProfile(c *fiber.Ctx) error {
 	err = db.Find(&res, data.UserId).Error
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(api.ErrorResponse(err))
+	}
+	if res == (models.User{}) {
+		return c.Status(fiber.StatusNotFound).JSON(api.ErrorResponse(err))
 	}
 
 	resp := ConvertUser(res)
@@ -253,17 +277,18 @@ type renewAccessTokenResponse struct {
 func RenewAccessToken(c *fiber.Ctx) error {
 	refreshToken := c.Cookies("refresh_token")
 	if refreshToken == "" {
-		return c.Status(fiber.StatusUnauthorized).SendString("can't renew the token")
+		err := fmt.Errorf("can't renew the token")
+		return c.Status(fiber.StatusUnauthorized).JSON(api.ErrorResponse(err))
 	}
 
 	refreshPayload, err := token.Jwtmaker.VerifyToken(refreshToken)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).SendString(err.Error())
+		return c.Status(fiber.StatusUnauthorized).JSON(api.ErrorResponse(err))
 	}
 
 	accessToken, accessPayload, err := token.Jwtmaker.CreateToken(refreshPayload.UserId, refreshPayload.Email, config.Cfg.AccessTokenDuration)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("can't create new token")
+		return c.Status(fiber.StatusInternalServerError).JSON(api.ErrorResponse(err))
 	}
 
 	rsp := renewAccessTokenResponse{
@@ -284,7 +309,7 @@ func Logout(c *fiber.Ctx) error {
 		HTTPOnly: true,
 	}
 	c.Cookie(&cookie)
-	return c.Status(fiber.StatusOK).SendString("logged out")
+	return c.SendString("logged out")
 }
 
 func DeleteMyProfile(c *fiber.Ctx) error {
@@ -309,7 +334,8 @@ func BecomeAuthor(c *fiber.Ctx) error {
 	payload := c.Locals("user")
 	data, ok := payload.(*token.Payload)
 	if !ok {
-		return c.Status(fiber.StatusBadRequest).SendString("Can't get payload")
+		err := fmt.Errorf("Can't get payload")
+		return c.Status(fiber.StatusBadRequest).JSON(api.ErrorResponse(err))
 	}
 	db := database.DbConn
 	err := db.Model(&models.User{}).Where("id = ?", data.UserId).Update("IsAuthor", true).Error

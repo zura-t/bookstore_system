@@ -325,7 +325,7 @@ func (r *userRouter) UpdateMyProfile(c *fiber.Ctx) error {
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(pkg.ErrorResponse(err))
+		return c.Status(fiber.StatusServiceUnavailable).JSON(pkg.ErrorResponse(err))
 	}
 
 	validate := validator.New()

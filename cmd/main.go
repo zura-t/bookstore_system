@@ -33,7 +33,7 @@ func main() {
 		"level": "Info",
 	}).Info("Connection opened to database")
 
-	db.AutoMigrate(&models.User{}, &models.Book{})
+	db.AutoMigrate(&models.User{})
 	log.WithFields(logrus.Fields{
 		"level": "Info",
 	}).Info("Migrated")

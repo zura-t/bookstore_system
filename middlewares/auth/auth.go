@@ -15,7 +15,11 @@ func New(log *logrus.Logger, token *token.JwtMaker) func(*fiber.Ctx) error {
 
 		req := c.Get("Authorization")
 		if req == "" {
-			return c.Status(403).JSON(pkg.ErrorResponse(fmt.Errorf("Forbidden")))
+			err := fmt.Errorf("Forbidden")
+			log.WithFields(logrus.Fields{
+				"level": "Error",
+			}).Error(err)
+			return c.Status(403).JSON(pkg.ErrorResponse(err))
 		}
 
 		splitToken := strings.Split(req, "Bearer ")

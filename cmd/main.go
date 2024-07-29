@@ -39,7 +39,6 @@ func main() {
 	}).Info("Migrated")
 
 	// app.Use(middleware.Logger())
-	
 
 	app.Use(cors.New())
 

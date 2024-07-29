@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/sirupsen/logrus"
+	"github.com/zura-t/bookstore_fiber/api/book"
 	"github.com/zura-t/bookstore_fiber/api/user"
 	"github.com/zura-t/bookstore_fiber/config"
 	"github.com/zura-t/bookstore_fiber/token"
@@ -23,5 +24,6 @@ func NewRouter(app *fiber.App, log *logrus.Logger, config config.Config, db *gor
 
 	{
 		user.NewuserRouter(app, log, config, db, token)
+		book.NewBookRouter(app, log, config, db, token)
 	}
 }

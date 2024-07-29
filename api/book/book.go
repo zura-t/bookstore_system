@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/zura-t/bookstore_fiber/config"
 	"github.com/zura-t/bookstore_fiber/middlewares/auth"
@@ -290,16 +291,8 @@ func (r *bookRouter) UpdateBook(c *fiber.Ctx) error {
 
 	book.File = path
 
-	err = r.db.Model(&models.Book{}).Where(&models.Book{ID: book.Id, AuthorID: data.UserId}).Updates(&book).Error
-	if err != nil {
-		r.log.WithFields(logrus.Fields{
-			"level": "Error",
-		}).Error(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(pkg.ErrorResponse(err))
-	}
-
 	var res models.Book
-	err = r.db.First(&res, book.Id).Error
+	err = r.db.Model(&res).Clauses(clause.Returning{}).Where(&models.Book{ID: book.Id, AuthorID: data.UserId}).Updates(&book).Error
 	if err != nil {
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",

@@ -1,6 +1,7 @@
 package user
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/zura-t/bookstore_fiber/token"
 	_ "gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type userRouter struct {
@@ -76,21 +78,23 @@ func (r *userRouter) GetMyProfile(c *fiber.Ctx) error {
 
 	var user models.User
 
-	err := r.db.Find(&user, data.UserId).Error
+	err := r.db.First(&user, data.UserId).Error
+
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = fmt.Errorf("User not found")
+			r.log.WithFields(logrus.Fields{
+				"level": "Error",
+			}).Error(err)
+			return c.Status(fiber.StatusNotFound).JSON(pkg.ErrorResponse(err))
+		}
+
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(pkg.ErrorResponse(err))
 	}
 
-	if user == (models.User{}) {
-		err = fmt.Errorf("User not found")
-		r.log.WithFields(logrus.Fields{
-			"level": "Error",
-		}).Error(err)
-		return c.Status(fiber.StatusNotFound).JSON(pkg.ErrorResponse(err))
-	}
 	res := ConvertUser(user)
 	return c.JSON(res)
 }
@@ -114,20 +118,20 @@ func (r *userRouter) GetUser(c *fiber.Ctx) error {
 
 	var user models.User
 
-	err := r.db.Find(&user, req.Id).Error
+	err := r.db.First(&user, req.Id).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = fmt.Errorf("User not found")
+			r.log.WithFields(logrus.Fields{
+				"level": "Error",
+			}).Error(err)
+			return c.Status(fiber.StatusNotFound).JSON(pkg.ErrorResponse(err))
+		}
+
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(pkg.ErrorResponse(err))
-	}
-
-	if user == (models.User{}) {
-		err = fmt.Errorf("User not found")
-		r.log.WithFields(logrus.Fields{
-			"level": "Error",
-		}).Error(err)
-		return c.Status(fiber.StatusNotFound).JSON(pkg.ErrorResponse(err))
 	}
 
 	res := ConvertUser(user)
@@ -167,8 +171,8 @@ func (r *userRouter) Register(c *fiber.Ctx) error {
 	}
 
 	var user models.User
-	err := r.db.Find(&user, models.User{Email: req.Email}).Error
-	if user != (models.User{}) {
+	err := r.db.First(&user, models.User{Email: req.Email}).Error
+	if err == nil {
 		err = fmt.Errorf("User with this email already exists")
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
@@ -251,20 +255,20 @@ func (r *userRouter) Login(c *fiber.Ctx) error {
 	}
 
 	var user models.User
-	err := r.db.Find(&user, models.User{Email: req.Email}).Error
+	err := r.db.First(&user, models.User{Email: req.Email}).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = fmt.Errorf("User not found")
+			r.log.WithFields(logrus.Fields{
+				"level": "Error",
+			}).Error(err)
+			return c.Status(fiber.StatusNotFound).JSON(pkg.ErrorResponse(err))
+		}
+
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(pkg.ErrorResponse(err))
-	}
-
-	if user == (models.User{}) {
-		err = fmt.Errorf("User not found")
-		r.log.WithFields(logrus.Fields{
-			"level": "Error",
-		}).Error(err)
-		return c.Status(fiber.StatusNotFound).JSON(pkg.ErrorResponse(err))
 	}
 
 	err = pkg.CheckPassword(req.Password, user.Password)
@@ -336,27 +340,13 @@ func (r *userRouter) UpdateMyProfile(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(pkg.ErrorResponse(err))
 	}
 
-	err := r.db.Model(&models.User{}).Where("id = ?", data.UserId).Updates(&user).Error
-	if err != nil {
-		r.log.WithFields(logrus.Fields{
-			"level": "Error",
-		}).Error(err)
-		return c.Status(fiber.StatusInternalServerError).JSON(pkg.ErrorResponse(err))
-	}
-
 	var res models.User
-	err = r.db.Find(&res, data.UserId).Error
+	err := r.db.Model(&res).Clauses(clause.Returning{}).Where("id = ?", data.UserId).Updates(&user).Error
 	if err != nil {
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
 		return c.Status(fiber.StatusInternalServerError).JSON(pkg.ErrorResponse(err))
-	}
-	if res == (models.User{}) {
-		r.log.WithFields(logrus.Fields{
-			"level": "Error",
-		}).Error(err)
-		return c.Status(fiber.StatusNotFound).JSON(pkg.ErrorResponse(err))
 	}
 
 	resp := ConvertUser(res)

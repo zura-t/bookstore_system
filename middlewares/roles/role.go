@@ -6,16 +6,15 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/sirupsen/logrus"
-	"github.com/zura-t/bookstore_fiber/database"
 	"github.com/zura-t/bookstore_fiber/models"
 	"github.com/zura-t/bookstore_fiber/pkg"
 	"github.com/zura-t/bookstore_fiber/token"
 	"gorm.io/gorm"
 )
 
-func New(log *logrus.Logger) func(*fiber.Ctx) error {
+func New(log *logrus.Logger, db *gorm.DB) func(*fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		payload := c.Locals("user")
+	payload := c.Locals("user")
 		data, ok := payload.(*token.Payload)
 		if !ok {
 			err := fmt.Errorf("Forbidden")
@@ -26,7 +25,6 @@ func New(log *logrus.Logger) func(*fiber.Ctx) error {
 		}
 
 		var user models.User
-		db := database.DbConn
 
 		err := db.First(&user, data.UserId).Error
 		if err != nil {

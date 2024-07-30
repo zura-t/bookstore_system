@@ -27,13 +27,13 @@ type bookRouter struct {
 
 func NewBookRouter(app *fiber.App, log *logrus.Logger, config config.Config, db *gorm.DB, token *token.JwtMaker) {
 	r := &bookRouter{log, config, db}
+	app.Get("/authors", r.GetAuthors)
+	app.Get("/books", r.GetBooks)
+	app.Get("/books/:id", r.GetBook)
 
 	authRoutes := app.Group("/", auth.New(log, token))
-	authRoutes.Get("/authors", r.GetAuthors)
-	authRoutes.Get("/", r.GetBooks)
-	authRoutes.Get("/:id", r.GetBook)
 
-	bookRoutes := authRoutes.Group("/books", role.New(log))
+	bookRoutes := authRoutes.Group("/books", role.New(log, db))
 	bookRoutes.Post("/", r.UploadBook)
 	bookRoutes.Patch("/:id", r.UpdateBook)
 	bookRoutes.Delete("/:id", r.DeleteBook)
@@ -183,7 +183,6 @@ func (r *bookRouter) GetAuthorBooks(c *fiber.Ctx) error {
 	return c.JSON(books)
 }
 
-// upload file
 func (r *bookRouter) UploadBook(c *fiber.Ctx) error {
 	payload := c.Locals("user")
 	data, ok := payload.(*token.Payload)

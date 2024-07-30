@@ -12,6 +12,6 @@ type Book struct {
 	Description string    `json:"description"`
 	Price       uint      `json:"price"`
 	AuthorID    uint      `json:"author_id"`
-	Author      User      `gorm:"foreignKey:AuthorID" json:"author`
+	Author      User      `gorm:"foreignKey:AuthorID" json:"author"`
 	File        string    `json:"file"`
 }

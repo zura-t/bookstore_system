@@ -3,6 +3,7 @@ package book
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -35,7 +36,7 @@ func NewBookRouter(app *fiber.App, log *logrus.Logger, config config.Config, db 
 
 	bookRoutes := authRoutes.Group("/books", role.New(log, db))
 	bookRoutes.Post("/", r.UploadBook)
-	bookRoutes.Patch("/:id", r.UpdateBook)
+	bookRoutes.Patch("/", r.UpdateBook)
 	bookRoutes.Delete("/:id", r.DeleteBook)
 }
 
@@ -51,7 +52,7 @@ type BookResponse struct {
 }
 
 type BookId struct {
-	Id uint `uri:"id" validate:"required,min=1"`
+	Id uint `uri:"id" json:"id" validate:"required,min=1"`
 }
 
 func (r *bookRouter) GetBooks(c *fiber.Ctx) error {
@@ -75,8 +76,8 @@ func (r *bookRouter) GetBooks(c *fiber.Ctx) error {
 }
 
 func (r *bookRouter) GetBook(c *fiber.Ctx) error {
-	var req BookId
-	if err := c.ParamsParser(&req); err != nil {
+	var req = &BookId{}
+	if err := c.ParamsParser(req); err != nil {
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
@@ -85,6 +86,23 @@ func (r *bookRouter) GetBook(c *fiber.Ctx) error {
 
 	validate := validator.New()
 	if err := validate.Struct(req); err != nil {
+		validationErrors, ok := err.(validator.ValidationErrors)
+		if ok {
+			var validation_errs = make([]string, len(validationErrors))
+			for l, validation_err := range validationErrors {
+				field, ok := reflect.TypeOf(req).Elem().FieldByName(validation_err.StructField())
+				fieldName := field.Tag.Get("json")
+				if !ok {
+					panic("Field not found")
+				}
+				validation_errs[l] = pkg.MsgForTag(validation_err, fieldName)
+			}
+			r.log.WithFields(logrus.Fields{
+				"level": "Error",
+			}).Error(validation_errs)
+			return c.Status(fiber.StatusBadRequest).JSON(pkg.MultipleErrorsResponse(validation_errs))
+		}
+
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
@@ -194,7 +212,7 @@ func (r *bookRouter) UploadBook(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(pkg.ErrorResponse(err))
 	}
 
-	var book UploadBook
+	var book *UploadBook
 	if err := c.BodyParser(&book); err != nil {
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
@@ -204,6 +222,23 @@ func (r *bookRouter) UploadBook(c *fiber.Ctx) error {
 
 	validate := validator.New()
 	if err := validate.Struct(book); err != nil {
+		validationErrors, ok := err.(validator.ValidationErrors)
+		if ok {
+			var validation_errs = make([]string, len(validationErrors))
+			for l, validation_err := range validationErrors {
+				field, ok := reflect.TypeOf(book).Elem().FieldByName(validation_err.StructField())
+				fieldName := field.Tag.Get("json")
+				if !ok {
+					panic("Field not found")
+				}
+				validation_errs[l] = pkg.MsgForTag(validation_err, fieldName)
+			}
+			r.log.WithFields(logrus.Fields{
+				"level": "Error",
+			}).Error(validation_errs)
+			return c.Status(fiber.StatusBadRequest).JSON(pkg.MultipleErrorsResponse(validation_errs))
+		}
+
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
@@ -259,7 +294,7 @@ func (r *bookRouter) UpdateBook(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(pkg.ErrorResponse(err))
 	}
 
-	var book BookUpdate
+	var book *BookUpdate
 	if err := c.BodyParser(&book); err != nil {
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
@@ -269,6 +304,23 @@ func (r *bookRouter) UpdateBook(c *fiber.Ctx) error {
 
 	validate := validator.New()
 	if err := validate.Struct(book); err != nil {
+		validationErrors, ok := err.(validator.ValidationErrors)
+		if ok {
+			var validation_errs = make([]string, len(validationErrors))
+			for l, validation_err := range validationErrors {
+				field, ok := reflect.TypeOf(book).Elem().FieldByName(validation_err.StructField())
+				fieldName := field.Tag.Get("json")
+				if !ok {
+					panic("Field not found")
+				}
+				validation_errs[l] = pkg.MsgForTag(validation_err, fieldName)
+			}
+			r.log.WithFields(logrus.Fields{
+				"level": "Error",
+			}).Error(validation_errs)
+			return c.Status(fiber.StatusBadRequest).JSON(pkg.MultipleErrorsResponse(validation_errs))
+		}
+
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
@@ -303,16 +355,16 @@ func (r *bookRouter) UpdateBook(c *fiber.Ctx) error {
 }
 
 type BookUpdate struct {
-	Id          uint   `json:"id" validate:"required"`
-	Title       string `json:"title" validate:"required"`
-	Description string `json:"description" validate:"required"`
-	Price       uint   `json:"price" validate:"required,min=1"`
+	Id          uint   `json:"id" validate:"required,min=1"`
+	Title       string `json:"title" validate:"min=1"`
+	Description string `json:"description"`
+	Price       uint   `json:"price" validate:"min=1"`
 	File        string `json:"file"`
 }
 
 func (r *bookRouter) DownloadBook(c *fiber.Ctx) error {
-	var req BookId
-	if err := c.ParamsParser(&req); err != nil {
+	req := &BookId{}
+	if err := c.ParamsParser(req); err != nil {
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
@@ -321,6 +373,23 @@ func (r *bookRouter) DownloadBook(c *fiber.Ctx) error {
 
 	validate := validator.New()
 	if err := validate.Struct(req); err != nil {
+		validationErrors, ok := err.(validator.ValidationErrors)
+		if ok {
+			var validation_errs = make([]string, len(validationErrors))
+			for l, validation_err := range validationErrors {
+				field, ok := reflect.TypeOf(req).Elem().FieldByName(validation_err.StructField())
+				fieldName := field.Tag.Get("json")
+				if !ok {
+					panic("Field not found")
+				}
+				validation_errs[l] = pkg.MsgForTag(validation_err, fieldName)
+			}
+			r.log.WithFields(logrus.Fields{
+				"level": "Error",
+			}).Error(validation_errs)
+			return c.Status(fiber.StatusBadRequest).JSON(pkg.MultipleErrorsResponse(validation_errs))
+		}
+
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
@@ -348,8 +417,8 @@ func (r *bookRouter) DownloadBook(c *fiber.Ctx) error {
 }
 
 func (r *bookRouter) DeleteBook(c *fiber.Ctx) error {
-	var req BookId
-	if err := c.ParamsParser(&req); err != nil {
+	var req = &BookId{}
+	if err := c.ParamsParser(req); err != nil {
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
@@ -358,6 +427,23 @@ func (r *bookRouter) DeleteBook(c *fiber.Ctx) error {
 
 	validate := validator.New()
 	if err := validate.Struct(req); err != nil {
+		validationErrors, ok := err.(validator.ValidationErrors)
+		if ok {
+			var validation_errs = make([]string, len(validationErrors))
+			for l, validation_err := range validationErrors {
+				field, ok := reflect.TypeOf(req).Elem().FieldByName(validation_err.StructField())
+				fieldName := field.Tag.Get("json")
+				if !ok {
+					panic("Field not found")
+				}
+				validation_errs[l] = pkg.MsgForTag(validation_err, fieldName)
+			}
+			r.log.WithFields(logrus.Fields{
+				"level": "Error",
+			}).Error(validation_errs)
+			return c.Status(fiber.StatusBadRequest).JSON(pkg.MultipleErrorsResponse(validation_errs))
+		}
+
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)

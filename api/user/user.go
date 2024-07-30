@@ -3,6 +3,7 @@ package user
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -44,7 +45,7 @@ func NewuserRouter(app *fiber.App, log *logrus.Logger, config config.Config, db 
 }
 
 type UserId struct {
-	Id uint `uri:"id" validate:"required,min=1"`
+	Id uint `uri:"id" json:"id" validate:"required,min=1"`
 }
 
 func (r *userRouter) GetUsers(c *fiber.Ctx) error {
@@ -100,8 +101,8 @@ func (r *userRouter) GetMyProfile(c *fiber.Ctx) error {
 }
 
 func (r *userRouter) GetUser(c *fiber.Ctx) error {
-	var req UserId
-	if err := c.ParamsParser(&req); err != nil {
+	var req = &UserId{}
+	if err := c.ParamsParser(req); err != nil {
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
@@ -110,6 +111,23 @@ func (r *userRouter) GetUser(c *fiber.Ctx) error {
 
 	validate := validator.New()
 	if err := validate.Struct(req); err != nil {
+		validationErrors, ok := err.(validator.ValidationErrors)
+		if ok {
+			var validation_errs = make([]string, len(validationErrors))
+			for l, validation_err := range validationErrors {
+				field, ok := reflect.TypeOf(req).Elem().FieldByName(validation_err.StructField())
+				fieldName := field.Tag.Get("json")
+				if !ok {
+					panic("Field not found")
+				}
+				validation_errs[l] = pkg.MsgForTag(validation_err, fieldName)
+			}
+			r.log.WithFields(logrus.Fields{
+				"level": "Error",
+			}).Error(validation_errs)
+			return c.Status(fiber.StatusBadRequest).JSON(pkg.MultipleErrorsResponse(validation_errs))
+		}
+
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
@@ -154,7 +172,7 @@ type UserResponse struct {
 }
 
 func (r *userRouter) Register(c *fiber.Ctx) error {
-	var req RegisterUserRequest
+	var req *RegisterUserRequest
 	if err := c.BodyParser(&req); err != nil {
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
@@ -164,6 +182,23 @@ func (r *userRouter) Register(c *fiber.Ctx) error {
 
 	validate := validator.New()
 	if err := validate.Struct(req); err != nil {
+		validationErrors, ok := err.(validator.ValidationErrors)
+		if ok {
+			var validation_errs = make([]string, len(validationErrors))
+			for l, validation_err := range validationErrors {
+				field, ok := reflect.TypeOf(req).Elem().FieldByName(validation_err.StructField())
+				fieldName := field.Tag.Get("json")
+				if !ok {
+					panic("Field not found")
+				}
+				validation_errs[l] = pkg.MsgForTag(validation_err, fieldName)
+			}
+			r.log.WithFields(logrus.Fields{
+				"level": "Error",
+			}).Error(validation_errs)
+			return c.Status(fiber.StatusBadRequest).JSON(pkg.MultipleErrorsResponse(validation_errs))
+		}
+
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
@@ -238,16 +273,33 @@ type LoginUserResponse struct {
 }
 
 func (r *userRouter) Login(c *fiber.Ctx) error {
-	var req LoginUserRequest
-	if err := c.BodyParser(&req); err != nil {
+	var req = &LoginUserRequest{}
+	if err := c.BodyParser(req); err != nil {
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
-		return c.Status(503).JSON(pkg.ErrorResponse(err))
+		return c.Status(fiber.StatusServiceUnavailable).JSON(pkg.ErrorResponse(err))
 	}
 
 	validate := validator.New()
 	if err := validate.Struct(req); err != nil {
+		validationErrors, ok := err.(validator.ValidationErrors)
+		if ok {
+			var validation_errs = make([]string, len(validationErrors))
+			for l, validation_err := range validationErrors {
+				field, ok := reflect.TypeOf(req).Elem().FieldByName(validation_err.StructField())
+				fieldName := field.Tag.Get("json")
+				if !ok {
+					panic("Field not found")
+				}
+				validation_errs[l] = pkg.MsgForTag(validation_err, fieldName)
+			}
+			r.log.WithFields(logrus.Fields{
+				"level": "Error",
+			}).Error(validation_errs)
+			return c.Status(fiber.StatusBadRequest).JSON(pkg.MultipleErrorsResponse(validation_errs))
+		}
+
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
@@ -310,7 +362,7 @@ func (r *userRouter) Login(c *fiber.Ctx) error {
 }
 
 type UserUpdate struct {
-	Name string `json:"name" validate:"required"`
+	Name string `json:"name" validate:"required,min=1"`
 }
 
 func (r *userRouter) UpdateMyProfile(c *fiber.Ctx) error {
@@ -324,8 +376,8 @@ func (r *userRouter) UpdateMyProfile(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(pkg.ErrorResponse(err))
 	}
 
-	var user UserUpdate
-	if err := c.BodyParser(&user); err != nil {
+	var user = &UserUpdate{}
+	if err := c.BodyParser(user); err != nil {
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
@@ -334,6 +386,23 @@ func (r *userRouter) UpdateMyProfile(c *fiber.Ctx) error {
 
 	validate := validator.New()
 	if err := validate.Struct(user); err != nil {
+		validationErrors, ok := err.(validator.ValidationErrors)
+		if ok {
+			var validation_errs = make([]string, len(validationErrors))
+			for l, validation_err := range validationErrors {
+				field, ok := reflect.TypeOf(user).Elem().FieldByName(validation_err.StructField())
+				fieldName := field.Tag.Get("json")
+				if !ok {
+					panic("Field not found")
+				}
+				validation_errs[l] = pkg.MsgForTag(validation_err, fieldName)
+			}
+			r.log.WithFields(logrus.Fields{
+				"level": "Error",
+			}).Error(validation_errs)
+			return c.Status(fiber.StatusBadRequest).JSON(pkg.MultipleErrorsResponse(validation_errs))
+		}
+
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)

@@ -3,6 +3,7 @@ package cart
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -57,8 +58,8 @@ func ConvertCartItem(cartItem models.CartItem) CartItemResponse {
 }
 
 func (r cartRouter) AddBookToCart(c *fiber.Ctx) error {
-	var req AddBookToCart
-	if err := c.BodyParser(&req); err != nil {
+	var req = &AddBookToCart{}
+	if err := c.BodyParser(req); err != nil {
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
@@ -67,6 +68,23 @@ func (r cartRouter) AddBookToCart(c *fiber.Ctx) error {
 
 	validate := validator.New()
 	if err := validate.Struct(req); err != nil {
+		validationErrors, ok := err.(validator.ValidationErrors)
+		if ok {
+			var validation_errs = make([]string, len(validationErrors))
+			for l, validation_err := range validationErrors {
+				field, ok := reflect.TypeOf(req).Elem().FieldByName(validation_err.StructField())
+				fieldName := field.Tag.Get("json")
+				if !ok {
+					panic("Field not found")
+				}
+				validation_errs[l] = pkg.MsgForTag(validation_err, fieldName)
+			}
+			r.log.WithFields(logrus.Fields{
+				"level": "Error",
+			}).Error(validation_errs)
+			return c.Status(fiber.StatusBadRequest).JSON(pkg.MultipleErrorsResponse(validation_errs))
+		}
+
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
@@ -196,8 +214,8 @@ func (r cartRouter) DeleteBookFromCart(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(pkg.ErrorResponse(err))
 	}
 
-	var req DeleteBookFromCart
-	if err := c.ParamsParser(&req); err != nil {
+	var req = &DeleteBookFromCart{}
+	if err := c.ParamsParser(req); err != nil {
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
@@ -206,6 +224,23 @@ func (r cartRouter) DeleteBookFromCart(c *fiber.Ctx) error {
 
 	validate := validator.New()
 	if err := validate.Struct(req); err != nil {
+		validationErrors, ok := err.(validator.ValidationErrors)
+		if ok {
+			var validation_errs = make([]string, len(validationErrors))
+			for l, validation_err := range validationErrors {
+				field, ok := reflect.TypeOf(req).Elem().FieldByName(validation_err.StructField())
+				fieldName := field.Tag.Get("json")
+				if !ok {
+					panic("Field not found")
+				}
+				validation_errs[l] = pkg.MsgForTag(validation_err, fieldName)
+			}
+			r.log.WithFields(logrus.Fields{
+				"level": "Error",
+			}).Error(validation_errs)
+			return c.Status(fiber.StatusBadRequest).JSON(pkg.MultipleErrorsResponse(validation_errs))
+		}
+
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
@@ -242,7 +277,7 @@ func (r cartRouter) DeleteBookFromCart(c *fiber.Ctx) error {
 }
 
 type DeleteBookFromCart struct {
-	Id uint `uri:"book_id" validate:"required,min=1"`
+	Id uint `uri:"book_id" json:"book_id" validate:"required,min=1"`
 }
 
 func (r *cartRouter) DeleteAllBooksFromCart(c *fiber.Ctx) error {

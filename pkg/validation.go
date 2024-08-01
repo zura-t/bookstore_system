@@ -7,11 +7,22 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+func GetTag(field reflect.StructField) string {
+	fieldTag := field.Tag.Get("json")
+	if fieldTag == "" {
+		fieldTag = field.Tag.Get("uri")
+	}
+	if fieldTag == "" {
+		fieldTag = field.Tag.Get("form")
+	}
+	return fieldTag
+}
+
 func ListValidationErrors(req interface{}, validationErrors validator.ValidationErrors) []string {
 	var validation_errs = make([]string, len(validationErrors))
 	for l, validation_err := range validationErrors {
 		field, ok := reflect.TypeOf(req).Elem().FieldByName(validation_err.StructField())
-		fieldName := field.Tag.Get("json")
+		fieldName := GetTag(field)
 		if !ok {
 			panic("Field not found")
 		}

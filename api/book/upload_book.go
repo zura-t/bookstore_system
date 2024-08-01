@@ -2,6 +2,10 @@ package book
 
 import (
 	"fmt"
+	"mime/multipart"
+	"time"
+
+	// "github.com/go-playground/validator/v10"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/sirupsen/logrus"
@@ -21,14 +25,13 @@ func (r *bookRouter) UploadBook(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(pkg.ErrorResponse(err))
 	}
 
-	var book *UploadBook
-	if err := c.BodyParser(&book); err != nil {
+	var book = &UploadBook{}
+	if err := c.BodyParser(book); err != nil {
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
 		return c.Status(fiber.StatusBadRequest).JSON(pkg.ErrorResponse(err))
 	}
-
 	validate := validator.New()
 	if err := validate.Struct(book); err != nil {
 		validationErrors, ok := err.(validator.ValidationErrors)
@@ -47,7 +50,14 @@ func (r *bookRouter) UploadBook(c *fiber.Ctx) error {
 
 	file, err := c.FormFile("book")
 	if err != nil {
-		err := fmt.Errorf("Can't get payload")
+		err := fmt.Errorf("Can't get file")
+		r.log.WithFields(logrus.Fields{
+			"level": "Error",
+		}).Error(err)
+		return c.Status(fiber.StatusBadRequest).JSON(pkg.ErrorResponse(err))
+	}
+	if file == nil {
+		err := fmt.Errorf("You didn't attach the file")
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",
 		}).Error(err)
@@ -74,11 +84,38 @@ func (r *bookRouter) UploadBook(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(pkg.ErrorResponse(err))
 	}
 
-	return c.JSON(arg)
+	res := convertBook(arg)
+
+	return c.JSON(res)
 }
 
 type UploadBook struct {
-	Title       string `json:"title" validate:"required"`
-	Description string `json:"description" validate:"required"`
-	Price       uint   `json:"price" validate:"required,min=1"`
+	Title       string                `form:"title" validate:"required,min=1"`
+	Description string                `form:"description" validate:"required,min=1"`
+	Price       uint                  `form:"price" validate:"required,min=1"`
+	Book        *multipart.FileHeader `form:"book"`
+}
+
+type UploadBookResponse struct {
+	ID          uint      `json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	Price       uint      `json:"price"`
+	AuthorID    uint      `json:"author_id"`
+	File        string    `json:"file"`
+}
+
+func convertBook(book models.Book) *UploadBookResponse {
+	return &UploadBookResponse{
+		ID:          book.ID,
+		Title:       book.Title,
+		Description: book.Description,
+		Price:       book.Price,
+		AuthorID:    book.AuthorID,
+		File:        book.File,
+		CreatedAt:   book.CreatedAt,
+		UpdatedAt:   book.UpdatedAt,
+	}
 }

@@ -26,6 +26,7 @@ func NewBookRouter(app *fiber.App, log *logrus.Logger, config config.Config, db 
 	authRoutes.Get("/readlist", r.GetReadList)
 	authRoutes.Post("/readlist", r.AddBookToReadList)
 	authRoutes.Delete("/readlist/:bookid", r.DeleteBookFromReadList)
+	authRoutes.Get("/books/my/list", r.GetAuthorBooks)
 
 	bookRoutes := authRoutes.Group("/books", role.New(log, db))
 	bookRoutes.Post("/", r.UploadBook)

@@ -12,7 +12,7 @@ import (
 )
 
 type DeleteBookFromReadList struct {
-	BookId uint `uri:"bookid" json:"bookid" validate:required,min=1"`
+	BookId uint `uri:"bookid" json:"bookid" validate:"required,min=1"`
 }
 
 func (r *bookRouter) DeleteBookFromReadList(c *fiber.Ctx) error {

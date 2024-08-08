@@ -2,18 +2,18 @@ package cart
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/sirupsen/logrus"
 	"github.com/zura-t/bookstore_fiber/models"
 	"github.com/zura-t/bookstore_fiber/pkg"
 	"github.com/zura-t/bookstore_fiber/token"
 	"gorm.io/gorm"
-	"time"
 )
 
 type CartItemResponse struct {
 	ID        uint             `json:"id"`
-	UserID    uint             `json:"user_id"`
 	BookID    uint             `json:"book_id"`
 	Book      BookItemResponse `json:"book"`
 	CreatedAt time.Time        `json:"created_at"`
@@ -31,6 +31,9 @@ type BookItemResponse struct {
 }
 
 func (r cartRouter) GetBooksInCart(c *fiber.Ctx) error {
+	limit := c.QueryInt("limit", 20)
+	offset := c.QueryInt("offset", 0)
+
 	payload := c.Locals("user")
 	data, ok := payload.(*token.Payload)
 	if !ok {
@@ -44,7 +47,7 @@ func (r cartRouter) GetBooksInCart(c *fiber.Ctx) error {
 	var cartItems []models.CartItem
 	err := r.db.Preload("Book", func(tx *gorm.DB) *gorm.DB {
 		return tx.Preload("Author")
-	}).Find(&cartItems, &models.CartItem{UserID: data.UserId}).Error
+	}).Order("cart_items.created_at DESC").Limit(limit).Offset(offset).Find(&cartItems, &models.CartItem{UserID: data.UserId}).Error
 	if err != nil {
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",

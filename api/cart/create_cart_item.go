@@ -19,7 +19,6 @@ type AddBookToCart struct {
 func ConvertCartItem(cartItem models.CartItem) CartItemResponse {
 	return CartItemResponse{
 		ID:     cartItem.ID,
-		UserID: cartItem.UserID,
 		BookID: cartItem.BookID,
 		Book: BookItemResponse{
 			Id:         cartItem.Book.ID,

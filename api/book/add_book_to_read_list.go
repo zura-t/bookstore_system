@@ -51,7 +51,7 @@ func (r bookRouter) AddBookToReadList(c *fiber.Ctx) error {
 	}
 
 	user := &models.User{ID: data.UserId}
-	err := r.db.Model(user).Association("ReadList").Append(&models.Book{ID: req.BookId})
+	err := r.db.Model(&models.UserBook{}).Create(&models.UserBook{UserID: user.ID, BookID: req.BookId}).Error
 	if err != nil {
 		r.log.WithFields(logrus.Fields{
 			"level": "Error",

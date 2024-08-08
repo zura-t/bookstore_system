@@ -49,7 +49,7 @@ func (r *bookRouter) DownloadBook(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(pkg.ErrorResponse(err))
 	}
 
-	c.Response().Header.Set("Content-Disposition", "attachment; filename=WHATEVER_YOU_WANT")
+	c.Response().Header.Set("Content-Disposition", "attachment; filename=book")
 	content_type := string(c.Request().Header.ContentType())
 	c.Response().Header.Set("Content-Type", content_type)
 	return c.SendFile(book.File)
